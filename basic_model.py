@@ -41,15 +41,18 @@ cls.fit(X_train, y_train)
 val_score = cls.score(X_val, y_val)
 print(f"Validation Accuracy: {val_score:.4f}")
 
-# Si la importancia del atributo es menor a 0.05, se elimina
+# Me quedo solo con los atributos que tienen una importancia mayor a 0.05
 feature_importances = cls.named_steps['decisiontreeclassifier'].feature_importances_
 feature_names = X_train.columns
-for feature_name, importance in zip(feature_names, feature_importances):
-    if importance < 0.05:
-        X_train = train_data.drop(columns=feature_name)
+selected_feature_names = [feature_name for feature_name, importance in zip(feature_names, feature_importances) if importance >= 0.05]
+X_train_selected = X_train[selected_feature_names]
 
-# Predecimos la probabilidad de conversión para el eval set
-y_preds = cls.predict_proba(eval_data.drop(columns=["ROW_ID"]))[:, cls.classes_ == 1].squeeze()
+# Entrenamiento del modelo con atributos seleccionados
+cls.fit(X_train_selected, y_train)
+
+# Predicción en el conjunto de evaluación con atributos seleccionados
+eval_data_selected = eval_data[selected_feature_names]
+y_preds = cls.predict_proba(eval_data_selected)[:, cls.classes_ == 1].squeeze()
 
 # Hacemos el subimssion file
 submission_df = pd.DataFrame({"ROW_ID": eval_data["ROW_ID"], "conversion": y_preds})
