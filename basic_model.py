@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import make_pipeline
+from hyperopt import fmin, tpe, hp
 
 # Load the competition data
 comp_data = pd.read_csv("competition_data.csv")
@@ -46,13 +47,37 @@ feature_importances = cls.named_steps['decisiontreeclassifier'].feature_importan
 feature_names = X_train.columns
 selected_feature_names = [feature_name for feature_name, importance in zip(feature_names, feature_importances) if importance >= 0.05]
 X_train_selected = X_train[selected_feature_names]
+X_val_selected = X_val[selected_feature_names]
 
-# Entrenamiento del modelo con atributos seleccionados
-cls.fit(X_train_selected, y_train)
 
-# Predicción en el conjunto de evaluación con atributos seleccionados
+# Hacemos busqueda de hyperparámetros con hyperopt
+def objective(params):
+    max_depth = int(params['max_depth'])
+    random_state = params['random_state']
+    
+    cls = make_pipeline(SimpleImputer(), DecisionTreeClassifier(max_depth=max_depth, random_state=random_state))
+    cls.fit(X_train_selected, y_train)
+    val_score = cls.score(X_val_selected, y_val)
+    return -val_score  # Hyperopt minimizes the objective, so we negate the score
+
+# Definimos el espacio de búsqueda de hyperparámetros
+space = {
+    'max_depth': hp.quniform('max_depth', 1, 20, 1),
+    'random_state': hp.choice('random_state', [42, 123, 234, 345])
+}
+
+# Corremos la búsqueda de hyperparámetros
+best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=100)
+best_max_depth = int(best['max_depth'])
+best_random_state = [42, 123, 234, 345][best['random_state']]
+
+# Entrenamos el modelo con los mejores hyperparámetros
 eval_data_selected = eval_data[selected_feature_names]
-y_preds = cls.predict_proba(eval_data_selected)[:, cls.classes_ == 1].squeeze()
+best_cls = make_pipeline(SimpleImputer(), DecisionTreeClassifier(max_depth=best_max_depth, random_state=best_random_state))
+best_cls.fit(X_train_selected, y_train)
+y_preds = best_cls.predict_proba(eval_data_selected)[:, best_cls.classes_ == 1].squeeze()
+score = best_cls.score(X_val_selected, y_val)
+print(f"Validation Accuracy (best parametros): {score:.4f}")
 
 # Hacemos el subimssion file
 submission_df = pd.DataFrame({"ROW_ID": eval_data["ROW_ID"], "conversion": y_preds})
