@@ -47,7 +47,7 @@ print(f"Validation Accuracy: {val_score:.4f}")
 # Me quedo solo con los atributos que tienen una importancia mayor a 0.05
 feature_importances = cls.named_steps['xgbclassifier'].feature_importances_
 feature_names = X_train.columns
-selected_feature_names = [feature_name for feature_name, importance in zip(feature_names, feature_importances) if importance >= 0.05]
+selected_feature_names = [feature_name for feature_name, importance in zip(feature_names, feature_importances) if importance >= 0.02]
 X_train_selected = X_train[selected_feature_names]
 X_val_selected = X_val[selected_feature_names]
 
@@ -65,7 +65,7 @@ def objective(params):
 # Definimos el espacio de búsqueda de hyperparámetros
 space = {
     'max_depth': hp.quniform('max_depth', 1, 40, 1),
-    'random_state': hp.choice('random_state', [42, 123, 234, 345])
+    'random_state': hp.choice('random_state', [10, 42, 123, 234, 345])
 }
 
 
